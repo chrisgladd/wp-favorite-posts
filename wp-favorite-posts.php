@@ -317,6 +317,85 @@ function wpfp_shortcode_func() {
 add_shortcode('wp-favorite-posts', 'wpfp_shortcode_func');
 
 
+function loop_favorite_posts_sidebar_func() {
+    $user = isset($_REQUEST['user']) ? $_REQUEST['user'] : "";
+    extract($args);
+    global $favorite_post_ids;
+    if ( !empty($user) ) {
+        if ( wpfp_is_user_favlist_public($user) )
+            $favorite_post_ids = wpfp_get_users_favorites($user);
+
+    } else {
+        $favorite_post_ids = wpfp_get_users_favorites();
+    }
+
+    $return_html = '<div class="loop-post-sidebar-wrap">';
+
+    if($favorite_post_ids){
+        $return_html .=     '<ul class="loop-post-sidebar">';
+
+        $favorite_post_ids = array_reverse($favorite_post_ids);
+        $post_per_page = wpfp_get_option("post_per_page");
+        $page = intval(get_query_var('paged'));
+
+        $qry = array('post__in' => $favorite_post_ids, 'posts_per_page'=> $post_per_page, 'orderby' => 'post__in', 'paged' => $page);
+        // custom post type support can easily be added with a line of code like below.
+        $qry['post_type'] = array('post','dining-listing','deal');
+
+        $post_query = new WP_Query($qry);
+        $posts_arr = $post_query->get_posts();
+
+        echo print_r($posts_arr);
+
+        foreach($posts_arr as $key => $post){
+            $image_thumb = '';
+            if(has_post_thumbnail($post->ID, 'related_post'))
+            {
+                $image_id = get_post_thumbnail_id($post->ID);
+                $image_thumb = wp_get_attachment_image_src($image_id, 'related_post', true);
+            }
+
+            $return_html .=         '<li class="loop-post-sidebar-item clearfix">';
+            $return_html .=             '<a href="'.get_permalink($post->ID).'" title="'.$post->post_title.'" class="rpwe-img">';
+            $return_html .=                 '<img src="'.$image_thumb[0].'" alt="'.$post->post_title.'" width="100" height="100" class="loop-post-sidebar-thumb the-post-thumbnail wp-post-image">';
+            $return_html .=             '</a>';
+
+            $return_html .=             '<h3 class="loop-post-sidebar-title">';
+            $return_html .=                 '<a href="'.get_permalink($post->ID).'" rel="bookmark" title="'.$post->post_title.'">';
+            $return_html .=                     $post->post_title;
+            $return_html .=                 '</a>';
+            $return_html .=             '</h3>';
+
+            $open_since_milli = strtotime($post->post_date);
+            if($use_open_since){
+                $open_since_milli = get_post_meta($post->ID, 'wpcf-open-since', true);
+            }
+            $open_since = date('M d, Y', $open_since_milli);
+            $return_html .=             '<time class="loop-post-sidebar-time" datetime="'.$open_since_milli.'">'.$open_since.'</time>';
+
+            $return_html .=             '<div class="loop-post-sidebar-summary">';
+            $return_html .=                 loop_get_post_excerpt($post, 100);
+            $return_html .=             '</div>';
+            $return_html .=         '</li>';
+        }
+
+        $return_html .=     '</ul>';
+    }
+    else
+    {
+        $return_html.= '<div class="loop-no-items">';
+        $return_html.= 'There isn\'t anything in this category, please add some posts!';
+        $return_html.= '</div>';
+    }
+
+    $return_html .= '</div>';
+
+
+    return $return_html;
+}
+add_shortcode('loop-favorite-posts-sidebar', 'loop_favorite_posts_sidebar_func');
+
+
 function wpfp_add_js_script() {
 	if (!wpfp_get_option('dont_load_js_file'))
 		wp_enqueue_script( "wp-favorite-posts", WPFP_PATH . "/wpfp.js", array( 'jquery' ) );
